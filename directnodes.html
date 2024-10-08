@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaflet Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 1024px; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([0, 0], 2);
+
+        // Set up the OSM layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        // Load the nodes data
+        fetch('nodes.json')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(node => {
+                    var marker = L.marker([node.latitude, node.longitude]).addTo(map);
+                    marker.bindTooltip(node.short_name);
+                    marker.bindPopup(`
+                        <b>Long Name:</b> ${node.long_name}<br>
+                        <b>SNR:</b> ${node.snr}<br>
+                        <b>Last Heard:</b> ${node.last_heard}
+                    `);
+                });
+            });
+    </script>
+</body>
+</html>

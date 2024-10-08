@@ -1,0 +1,13 @@
+[project]
+name = "nodes2sql"
+version = "0.1.0"
+description = "Grabs Nodes from meshtastic nodedb and stuffs them into sqlite"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "meshtastic==2.5.1",
+]
+platform = "macos"
+
+[tool.uv]
+override-dependencies = ["bleak==0.22.3"]
