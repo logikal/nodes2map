@@ -21,18 +21,56 @@
             maxZoom: 19,
         }).addTo(map);
 
+        // Function to calculate hours since last heard
+        function getHoursSinceLastHeard(lastHeardStr) {
+            const lastHeard = new Date(lastHeardStr);
+            const now = new Date();
+            return (now - lastHeard) / (1000 * 60 * 60);
+        }
+
+        // Function to get marker color based on age
+        function getMarkerColor(hoursSinceLastHeard) {
+            if (hoursSinceLastHeard <= 24) return '#9FC0E5';
+            if (hoursSinceLastHeard <= 48) return '#7DE599';
+            if (hoursSinceLastHeard <= 72) return '#FDE188';
+            return '#F07175';
+        }
+
+        // Custom icon function
+        function createCustomIcon(color) {
+            return L.divIcon({
+                className: 'custom-icon',
+                html: `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.5 0C5.596 0 0 5.596 0 12.5C0 21.875 12.5 41 12.5 41S25 21.875 25 12.5C25 5.596 19.404 0 12.5 0Z" fill="${color}"/>
+                        <circle cx="12.5" cy="12.5" r="5.5" fill="white"/>
+                       </svg>`,
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                tooltipAnchor: [16, -28]
+            });
+        }
+
         // Load the nodes data
         fetch('nodes.json')
             .then(response => response.json())
             .then(data => {
                 data.forEach(node => {
-                    var marker = L.marker([node.latitude, node.longitude]).addTo(map);
-                    marker.bindTooltip(node.short_name);
-                    marker.bindPopup(`
-                        <b>Long Name:</b> ${node.long_name}<br>
-                        <b>SNR:</b> ${node.snr}<br>
-                        <b>Last Heard:</b> ${node.last_heard}
-                    `);
+                    // Check if last_heard is valid
+                    if (node.last_heard !== 'N/A') {
+                        const hoursSinceLastHeard = getHoursSinceLastHeard(node.last_heard);
+
+                        const markerColor = getMarkerColor(hoursSinceLastHeard);
+                        const customIcon = createCustomIcon(markerColor);
+
+                        var marker = L.marker([node.latitude, node.longitude], {icon: customIcon}).addTo(map);
+                        marker.bindTooltip(node.short_name);
+                        marker.bindPopup(`
+                            <b>Long Name:</b> ${node.long_name}<br>
+                            <b>SNR:</b> ${node.snr}<br>
+                            <b>Last Heard:</b> ${node.last_heard}
+                        `);
+                    }
                 });
             });
     </script>
