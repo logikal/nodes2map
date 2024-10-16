@@ -11,3 +11,6 @@ wheels/
 
 # the sqlite database
 nodes.db
+
+# osx bs
+.DS_Store
