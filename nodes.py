@@ -48,6 +48,16 @@ def get_nodedb_via_bluetooth(address, db_name="nodes.db"):
 
         # Insert or update nodes in the database
         for node_id, node in nodedb.items():
+            last_heard = node.get('lastHeard')
+
+            # Attempt to convert last_heard to a formatted string
+            # This causes errors when we receive garbled NodeInfo 
+            # packets from nodes and we lack a lastHeard value
+            try:
+                last_heard_str = datetime.fromtimestamp(last_heard).strftime('%Y-%m-%d %H:%M:%S')
+            except (TypeError, ValueError) as e:
+                # If there's an error in conversion, skip this node
+                continue
             user = node.get('user', {})
             position = node.get('position', {})
             cursor.execute('''
@@ -85,7 +95,7 @@ def get_nodedb_via_bluetooth(address, db_name="nodes.db"):
         # Commit changes to the database
         conn.commit()
         print("Database updated")
-    except (meshtastic.ble_interface.BLEInterface.BLEError, BLEInterface.BLEError, bleak.exc.BleakDeviceNotFoundError) as e:
+    except (meshtastic.ble_interface.BLEInterface.BLEError) as e:
         print(f"Couldn't connect to the node. Is someone else connected to it? {e}")
     except Exception as e:
         print(f"Error: {e}")
@@ -102,6 +112,12 @@ def get_nodedb_via_bluetooth(address, db_name="nodes.db"):
     # Print the number of nodes updated
     print(f"Number of nodes updated: {nodes_updated}")
 
+def format_last_heard(last_heard):
+    try:
+        return datetime.fromtimestamp(last_heard).strftime('%Y-%m-%d %H:%M:%S')
+    except (TypeError, ValueError):
+        return 'N/A'
+
 def extract_nodes_to_json(db_name="nodes.db", output_file="nodes.json"):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
@@ -116,7 +132,7 @@ def extract_nodes_to_json(db_name="nodes.db", output_file="nodes.json"):
             "short_name": short_name,
             "long_name": long_name,
             "snr": snr,
-            "last_heard": datetime.fromtimestamp(last_heard).strftime('%Y-%m-%d %H:%M:%S')
+            "last_heard": format_last_heard(last_heard)
         }
         for lat, lon, short_name, long_name, snr, last_heard in nodes
     ]
