@@ -10,11 +10,19 @@
     </style>
 </head>
 <body>
+    <div>
+        <label><input type="checkbox" id="toggle-24" checked> Last Heard <= 24 hours</label>
+        <label><input type="checkbox" id="toggle-48" checked> Last Heard <= 48 hours</label>
+        <label><input type="checkbox" id="toggle-72" checked> Last Heard <= 72 hours</label>
+        <label><input type="checkbox" id="toggle-older" checked> Last Heard > 72 hours</label> <!-- New toggle -->
+        <label><input type="checkbox" id="toggle-direct" checked> No Hops Away</label> <!-- New toggle -->
+    </div>
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         // Initialize the map
         var map = L.map('map').setView([0, 0], 2);
+        var markers = []; // Array to hold markers
 
         // Set up the OSM layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -55,11 +63,11 @@
         fetch('nodes.json')
             .then(response => response.json())
             .then(data => {
+                console.log(data); // Log the data to check if hops_away is present
                 data.forEach(node => {
                     // Check if last_heard is valid
                     if (node.last_heard !== 'N/A') {
                         const hoursSinceLastHeard = getHoursSinceLastHeard(node.last_heard);
-
                         const markerColor = getMarkerColor(hoursSinceLastHeard);
                         const customIcon = createCustomIcon(markerColor);
 
@@ -68,11 +76,81 @@
                         marker.bindPopup(`
                             <b>Long Name:</b> ${node.long_name}<br>
                             <b>SNR:</b> ${node.snr}<br>
-                            <b>Last Heard:</b> ${node.last_heard}
+                            <b>Last Heard:</b> ${node.last_heard}<br>
+                            <b>Hops Away:</b> ${node.hops_away === null ? 'Direct Connection' : node.hops_away}
                         `);
+                        markers.push({ marker, hoursSinceLastHeard, hopsAway: node.hops_away }); // Store hopsAway
                     }
                 });
+                updateMarkers(); // Initial call to display markers based on toggles
+                fitMapToMarkers(); // Fit the map to the markers only on initial load
             });
+
+        // Function to update markers based on toggle states
+        function updateMarkers() {
+            markers.forEach(({ marker, hoursSinceLastHeard, hopsAway }) => {
+                const show24 = document.getElementById('toggle-24').checked;
+                const show48 = document.getElementById('toggle-48').checked;
+                const show72 = document.getElementById('toggle-72').checked;
+                const showOlder = document.getElementById('toggle-older').checked; // New toggle state
+                const showDirect = document.getElementById('toggle-direct').checked; // New toggle state
+
+                // Determine visibility based on toggle states
+                const isDirectlyConnected = (hopsAway === null || hopsAway === 0); // Check if directly connected
+
+                const shouldShow = (show24 && hoursSinceLastHeard <= 24) ||
+                                   (show48 && hoursSinceLastHeard > 24 && hoursSinceLastHeard <= 48) ||
+                                   (show72 && hoursSinceLastHeard > 48 && hoursSinceLastHeard <= 72) ||
+                                   (showOlder && hoursSinceLastHeard > 72) ||
+                                   (showDirect && isDirectlyConnected); // Updated condition
+
+                // If "Directly Connected" is checked, ensure it doesn't show nodes that are older than the selected time
+                if (showDirect) {
+                    if (!shouldShow) {
+                        // If directly connected is checked but the node doesn't meet the time criteria, hide it
+                        if (hoursSinceLastHeard > 72 && !showOlder) {
+                            marker.remove(); // Remove marker if it's older than 72 hours and showOlder is unchecked
+                            return;
+                        }
+                        if (hoursSinceLastHeard > 48 && !show72) {
+                            marker.remove(); // Remove marker if it's older than 48 hours and show72 is unchecked
+                            return;
+                        }
+                        if (hoursSinceLastHeard > 24 && !show48) {
+                            marker.remove(); // Remove marker if it's older than 24 hours and show48 is unchecked
+                            return;
+                        }
+                    }
+                }
+
+                if (shouldShow) {
+                    marker.addTo(map);
+                } else {
+                    map.removeLayer(marker);
+                }
+            });
+        }
+
+        // Function to fit the map to the markers
+        function fitMapToMarkers() {
+            var bounds = L.latLngBounds();
+
+            markers.forEach(({ marker }) => {
+                bounds.extend(marker.getLatLng()); // Extend bounds to include this marker
+            });
+
+            // Fit the map to the bounds of the markers
+            if (bounds.isValid()) {
+                map.fitBounds(bounds);
+            }
+        }
+
+        // Event listeners for toggles
+        document.getElementById('toggle-24').addEventListener('change', updateMarkers);
+        document.getElementById('toggle-48').addEventListener('change', updateMarkers);
+        document.getElementById('toggle-72').addEventListener('change', updateMarkers);
+        document.getElementById('toggle-older').addEventListener('change', updateMarkers); // New event listener
+        document.getElementById('toggle-direct').addEventListener('change', updateMarkers); // New event listener
     </script>
 </body>
 </html>

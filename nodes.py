@@ -5,6 +5,7 @@ import meshtastic.util
 import argparse
 import sqlite3
 import json
+import sys
 from datetime import datetime
 
 def initialize_database(db_name="nodes.db"):
@@ -121,7 +122,7 @@ def format_last_heard(last_heard):
 def extract_nodes_to_json(db_name="nodes.db", output_file="nodes.json"):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
-    cursor.execute("SELECT latitude, longitude, short_name, long_name, snr, last_heard FROM nodes WHERE (hops_away is null OR hops_away = 0) AND latitude >0")
+    cursor.execute("SELECT latitude, longitude, short_name, long_name, snr, last_heard, hops_away FROM nodes WHERE latitude > 0")
     nodes = cursor.fetchall()
     conn.close()
 
@@ -132,17 +133,18 @@ def extract_nodes_to_json(db_name="nodes.db", output_file="nodes.json"):
             "short_name": short_name,
             "long_name": long_name,
             "snr": snr,
-            "last_heard": format_last_heard(last_heard)
+            "last_heard": format_last_heard(last_heard),
+            "hops_away": hops_away
         }
-        for lat, lon, short_name, long_name, snr, last_heard in nodes
+        for lat, lon, short_name, long_name, snr, last_heard, hops_away in nodes
     ]
 
     with open(output_file, "w") as f:
-        json.dump(nodes_list, f)
+        json.dump(nodes_list, f, indent=2)
 
 def main():
     parser = argparse.ArgumentParser(description="Retrieve node database from a Meshtastic node via Bluetooth")
-    parser.add_argument('--address', required=True, help='Bluetooth address of the Meshtastic node')
+    parser.add_argument('--address', required=not '--exportonly' in sys.argv, help='Bluetooth address of the Meshtastic node')
     parser.add_argument('--jsonexport', default="nodes.json", help='Output file for the node database')
     parser.add_argument('--exportonly', default=False, action='store_true', help='Only export the node database to JSON')
     args = parser.parse_args()
